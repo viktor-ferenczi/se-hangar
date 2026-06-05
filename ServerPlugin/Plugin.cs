@@ -1,7 +1,11 @@
-﻿using System;
+using System;
+using System.ComponentModel;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using HarmonyLib;
+using PluginSdk.Commands;
+using PluginSdk.Config;
 using Shared.Config;
 using Shared.Logging;
 using Shared.Patches;
@@ -15,24 +19,31 @@ namespace ServerPlugin;
 // ReSharper disable once UnusedType.Global
 public class Plugin : IPlugin, ICommonPlugin
 {
-    public const string Name = "Hangar";
+    public const string PluginName = "Hangar";
+    public static string DefaultStorageRoot => Path.Combine(MyFileSystem.UserDataPath, PluginName);
+
     public static Plugin Instance { get; private set; }
 
     public long Tick { get; private set; }
-    private static bool failed;
 
     public IPluginLogger Log => Logger;
-    private static readonly IPluginLogger Logger = new PluginLogger(Name);
+    private static readonly IPluginLogger Logger = new SdkPluginLogger(PluginName);
 
-    public IPluginConfig Config => config?.Data;
-    private PersistentConfig<PluginConfig> config;
-    private static readonly string ConfigFileName = $"{Name}.cfg";
+    public IPluginConfig Config => _config;
+    public PluginConfig PluginConfig => _config;
+    public HangarStorage Storage { get; private set; }
+
+    private PluginConfig _config;
+    private string _configPath;
+    private bool _failed;
+    private bool _initialized;
+    private static readonly string ConfigFileName = $"{PluginName}.xml";
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public void Init(object gameInstance)
     {
 #if DEBUG
-        // Allow the debugger some time to connect once the plugin assembly is loaded
+        // Allow the debugger some time to connect once the plugin assembly is loaded.
         Thread.Sleep(100);
 #endif
 
@@ -40,18 +51,37 @@ public class Plugin : IPlugin, ICommonPlugin
 
         Log.Info("Loading");
 
-        var configPath = Path.Combine(MyFileSystem.UserDataPath, ConfigFileName);
-        config = PersistentConfig<PluginConfig>.Load(Log, configPath);
+        _configPath = Path.Combine(MyFileSystem.UserDataPath, ConfigFileName);
+        _config = ConfigStorage.LoadXml<PluginConfig>(_configPath);
+        if (string.IsNullOrWhiteSpace(_config.StorageRoot))
+        {
+            _config.StorageRoot = DefaultStorageRoot;
+            SaveConfig();
+        }
 
         var gameVersion = MyFinalBuildConstants.APP_VERSION_STRING.ToString();
         Common.SetPlugin(this, gameVersion, MyFileSystem.UserDataPath);
 
-        if (!PatchHelpers.HarmonyPatchAll(Log, new Harmony(Name)))
+        if (!PatchHelpers.HarmonyPatchAll(Log, new Harmony(PluginName)))
         {
-            failed = true;
+            _failed = true;
             return;
         }
 
+        try
+        {
+            ServerCommands.Register(Assembly.GetExecutingAssembly(), typeof(HangarCommands), typeof(HangarShortCommands));
+        }
+        catch (Exception exception)
+        {
+            Log.Warning(exception, "Failed to register Hangar chat commands.");
+        }
+
+        Storage = new HangarStorage(this);
+        Storage.EnsureStorage();
+        _config.PropertyChanged += ConfigChanged;
+
+        _initialized = true;
         Log.Debug("Successfully loaded");
     }
 
@@ -59,26 +89,36 @@ public class Plugin : IPlugin, ICommonPlugin
     {
         try
         {
-            // TODO: Save state and close resources here, called when the game exists (not guaranteed!)
-            // IMPORTANT: Do NOT call harmony.UnpatchAll() here! It may break other plugins.
+            if (_initialized)
+            {
+                Log.Debug("Disposing");
+                if (_config != null)
+                {
+                    _config.PropertyChanged -= ConfigChanged;
+                    SaveConfig();
+                }
+
+                Log.Debug("Disposed");
+            }
         }
         catch (Exception ex)
         {
             Log.Critical(ex, "Dispose failed");
         }
 
+        Storage = null;
         Instance = null;
     }
 
     public void Update()
     {
-        if (failed)
+        if (_failed)
             return;
-        
+
 #if DEBUG
         CustomUpdate();
         Tick++;
-#else        
+#else
         try
         {
             CustomUpdate();
@@ -87,14 +127,45 @@ public class Plugin : IPlugin, ICommonPlugin
         catch (Exception e)
         {
             Log.Critical(e, "Update failed");
-            failed = true;
+            _failed = true;
         }
-#endif       
+#endif
+    }
+
+    public void SetEnabled(bool enabled)
+    {
+        if (_config == null)
+            return;
+
+        _config.Enabled = enabled;
+        SaveConfig();
+    }
+
+    public void SaveConfig()
+    {
+        if (_config == null || string.IsNullOrWhiteSpace(_configPath))
+            return;
+
+        try
+        {
+            ConfigStorage.SaveXml(_config, _configPath);
+        }
+        catch (Exception exception)
+        {
+            Log.Warning(exception, "Failed to save Hangar configuration.");
+        }
     }
 
     private void CustomUpdate()
     {
-        // TODO: Put your update code here. It is called on every simulation frame!
+        if (!_config.Enabled)
+            return;
+
         PatchHelpers.PatchUpdates();
+    }
+
+    private void ConfigChanged(object sender, PropertyChangedEventArgs e)
+    {
+        SaveConfig();
     }
 }
