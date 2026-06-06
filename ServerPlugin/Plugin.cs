@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.IO;
 using System.Reflection;
@@ -37,7 +37,7 @@ public class Plugin : IPlugin, ICommonPlugin
     private string _configPath;
     private bool _failed;
     private bool _initialized;
-    private static readonly string ConfigFileName = $"{PluginName}.xml";
+    private static readonly string ConfigFileName = $"{PluginName}.cfg";
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public void Init(object gameInstance)
