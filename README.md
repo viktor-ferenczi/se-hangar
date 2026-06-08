@@ -49,3 +49,7 @@ ServerPlugin\Deploy.bat Hangar.dll ServerPlugin\bin\Debug\net10.0
 ```
 
 `Hangar.xml` is the MagnetarHub metadata file for server-side publication.
+
+Functionality is inspired by and reimplements the original Torch plugin
+QuantumHangar by Casimir255 (license: Apache-2.0):
+https://github.com/Casimir255/QuantumHangar)
