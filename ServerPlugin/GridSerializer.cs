@@ -18,6 +18,7 @@ public static class GridSerializer
         var definition = MyObjectBuilderSerializerKeen.CreateNewObject<MyObjectBuilder_ShipBlueprintDefinition>();
         definition.Id = new MyDefinitionId(new MyObjectBuilderType(typeof(MyObjectBuilder_ShipBlueprintDefinition)), blueprintName);
         definition.CubeGrids = grids.Select(GetObjectBuilder).ToArray();
+        SanitizeStoredProjectorBlueprints(definition.CubeGrids);
 
         var definitions = MyObjectBuilderSerializerKeen.CreateNewObject<MyObjectBuilder_Definitions>();
         definitions.ShipBlueprints = new[] { definition };
@@ -53,6 +54,9 @@ public static class GridSerializer
             }
         }
 
+        grids.RemoveAll(grid => grid == null);
+        SanitizeStoredProjectorBlueprints(grids);
+
         foreach (var grid in grids)
             ResetLandingGear(grid);
 
@@ -78,6 +82,53 @@ public static class GridSerializer
             throw new InvalidOperationException($"{grid.DisplayName} did not produce a cube-grid object builder.");
 
         return objectBuilder;
+    }
+
+    private static void SanitizeStoredProjectorBlueprints(IEnumerable<MyObjectBuilder_CubeGrid> grids)
+    {
+        var visited = new HashSet<MyObjectBuilder_CubeGrid>();
+        foreach (var grid in grids)
+        {
+            if (grid?.CubeBlocks == null)
+                continue;
+
+            foreach (var projector in grid.CubeBlocks.OfType<MyObjectBuilder_Projector>())
+                SanitizeProjectorBlueprint(projector, visited);
+        }
+    }
+
+    private static void SanitizeProjectorBlueprint(
+        MyObjectBuilder_Projector projector,
+        HashSet<MyObjectBuilder_CubeGrid> visited)
+    {
+        if (projector.ProjectedGrids != null)
+        {
+            projector.ProjectedGrids.RemoveAll(grid => grid == null);
+            foreach (var projectedGrid in projector.ProjectedGrids)
+                SanitizeProjectedGrid(projectedGrid, visited);
+        }
+
+        SanitizeProjectedGrid(projector.ProjectedGrid, visited);
+    }
+
+    private static void SanitizeProjectedGrid(
+        MyObjectBuilder_CubeGrid projectedGrid,
+        HashSet<MyObjectBuilder_CubeGrid> visited)
+    {
+        if (projectedGrid == null || !visited.Add(projectedGrid) || projectedGrid.CubeBlocks == null)
+            return;
+
+        foreach (var cubeBlock in projectedGrid.CubeBlocks)
+        {
+            if (cubeBlock == null)
+                continue;
+
+            if (cubeBlock.ConstructionStockpile != null)
+                cubeBlock.ConstructionStockpile.Items = Array.Empty<MyObjectBuilder_StockpileItem>();
+
+            if (cubeBlock is MyObjectBuilder_Projector nestedProjector)
+                SanitizeProjectorBlueprint(nestedProjector, visited);
+        }
     }
 
     private static void RemovePilots(MyCubeGrid grid)
