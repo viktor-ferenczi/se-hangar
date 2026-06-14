@@ -30,6 +30,16 @@ The plugin output is:
 ServerPlugin/bin/Debug/net10.0/Hangar.dll
 ```
 
+The plugin version lives in `Version.Build.props`, which **is** committed and imported by
+`Directory.Build.props`. Bump the version there at a single place.
+
+`Directory.Build.props.template` is a template for `Directory.Build.props`. The latter is a
+local config file (not committed) where you can override the reference folder paths
+(`Magnetar` and `Dedicated64`). `setup.py` copies the template to `Directory.Build.props` if
+it does not exist yet, then fills in the auto-detected paths. Leaving a path empty falls back
+to the platform-specific auto-detection in the file, so the build works on both Windows and
+Linux.
+
 ## Configuration
 
 Magnetar stores configuration through the Plugin SDK config system.
