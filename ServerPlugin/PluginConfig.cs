@@ -114,9 +114,6 @@ public class PluginConfig : PluginSdk.Config.PluginConfig, IPluginConfig
     [BoolOption("Enable the Hangar plugin", Parent = "runtime")]
     public bool Enabled { get; set => SetField(ref field, value); } = true;
 
-    [BoolOption("Disable the plugin if game-code verification fails", Parent = "runtime")]
-    public bool DetectCodeChanges { get; set => SetField(ref field, value); } = true;
-
     [StringOption(description: "Central storage root managed by Quasar. Empty uses Space Engineers user data/Hangar.", Parent = "central")]
     public string StorageRoot { get; set => SetField(ref field, value); } = "";
 
