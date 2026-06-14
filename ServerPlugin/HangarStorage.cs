@@ -228,7 +228,7 @@ public sealed class HangarStorage
 
     public string Describe(HangarEntry entry, int index)
     {
-        return $"{index}. {entry.GridName} [{entry.Id[..Math.Min(8, entry.Id.Length)]}] " +
+        return $"{index}. {entry.GridName} [{entry.Id.Substring(0, Math.Min(8, entry.Id.Length))}] " +
                $"{entry.GridCount} grids, {entry.Blocks} blocks, {entry.Pcu} PCU, saved {FormatDate(entry.SavedUtc)}";
     }
 

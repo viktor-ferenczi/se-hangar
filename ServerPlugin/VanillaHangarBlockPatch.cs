@@ -52,12 +52,12 @@ public static class VanillaHangarBlockPatch
         if (text.Length < 2 || (text[0] != '!' && text[0] != '/'))
             return false;
 
-        var command = text[1..].TrimStart();
+        var command = text.Substring(1).TrimStart();
         if (command.Length == 0)
             return false;
 
         var separator = command.IndexOfAny([' ', '\t', '\r', '\n']);
-        root = separator < 0 ? command : command[..separator];
+        root = separator < 0 ? command : command.Substring(0, separator);
         return root.Length > 0;
     }
 

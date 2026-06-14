@@ -52,7 +52,7 @@ public abstract class HangarCommandModule : CommandModule
             gridNameOrEntityId,
             out var entry,
             out error)
-            ? $"Saved {entry.GridName} to hangar as {entry.Id[..8]}."
+            ? $"Saved {entry.GridName} to hangar as {entry.Id.Substring(0, 8)}."
             : error;
     }
 
